@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<title>App</title>
+
+<style>
+body {
+  margin:0;
+  font-family:Arial;
+  background:#f0f2f5;
+}
+
+.header {
+  background:linear-gradient(45deg,#4CAF50,#2ecc71);
+  color:white;
+  padding:15px;
+  text-align:center;
+  font-weight:bold;
+}
+
+.container {
+  max-width:500px;
+  margin:auto;
+  padding:15px;
+}
+
+input, textarea, button {
+  width:100%;
+  margin:6px 0;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid #ddd;
+  box-sizing:border-box;
+  font-size:14px;
+}
+
+button {
+  background:linear-gradient(45deg,#4CAF50,#2ecc71);
+  color:white;
+  border:none;
+  font-weight:bold;
+}
+
+.lista-item {
+  background:white;
+  padding:12px;
+  margin-bottom:8px;
+  border-radius:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.08);
+  cursor:pointer;
+}
+
+.hidden { display:none; }
+</style>
+
+</head>
+
+<body>
+
+<div class="header">📱 Meu App</div>
+
+<!-- LOGIN -->
+
+<div id="loginScreen" class="container">
+  <input type="password" id="pinInput" placeholder="PIN">
+  <button onclick="checkPin()">Entrar</button>
+</div>
+
+<!-- MENU -->
+
+<div id="menuScreen" class="container hidden">
+  <button onclick="abrirLista()">📋 Ver Pessoas</button>
+  <button onclick="novo()">➕ Novo Cadastro</button>
+  <button onclick="abrirVisitas()">📌 Visitas</button>
+  <button onclick="exportar()">📤 Exportar</button>
+  <button onclick="importar()">📥 Importar</button>
+  <button onclick="trocarPin()">🔑 Alterar PIN</button>
+</div>
+
+<!-- LISTA -->
+
+<div id="listaScreen" class="container hidden">
+  <button onclick="voltarMenu()">← Voltar</button>
+  <input type="text" id="busca" placeholder="Buscar">
+  <div id="lista"></div>
+</div>
+
+<!-- FORM -->
+
+<div id="formScreen" class="container hidden">
+  <button onclick="voltarMenu()">← Voltar</button>
+
+  <input type="text" id="nome" placeholder="Nome">
+  <input type="text" id="designacao" placeholder="Designação">
+  <textarea id="obs" placeholder="Observações"></textarea>
+
+<button onclick="salvar()">Salvar</button>
+
+</div>
+
+<!-- VISITAS -->
+
+<div id="visitasScreen" class="container hidden">
+  <button onclick="voltarMenu()">← Voltar</button>
+
+<button onclick="addCardVisita()">+ Card</button>
+
+  <div id="cardsVisita"></div>
+
+<button onclick="addArquivoVisita()">+ Arquivo</button>
+
+  <div id="arquivosVisita"></div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB72TMgG2NsPRCcysoH6W3eTXAtLuUhvvQ",
+  authDomain: "conectjw-fc322.firebaseapp.com",
+  projectId: "conectjw-fc322"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+signInAnonymously(auth);
+
+// ESTADO
+let dadosCache = [];
+let visitasCards = [];
+let visitasArquivos = [];
+
+// PIN
+if(!localStorage.getItem("pin")) localStorage.setItem("pin","123456");
+
+window.checkPin = function(){
+  if(pinInput.value === localStorage.getItem("pin")){
+    loginScreen.classList.add("hidden");
+    menuScreen.classList.remove("hidden");
+  } else alert("PIN errado");
+}
+
+window.trocarPin = ()=> localStorage.setItem("pin", prompt("Novo PIN"));
+
+// 🔥 LISTA COM FIREBASE (CORRIGIDO)
+window.abrirLista = async function(){
+  menuScreen.classList.add("hidden");
+  listaScreen.classList.remove("hidden");
+
+  lista.innerHTML = "";
+  dadosCache = [];
+
+  const snap = await getDocs(collection(db,"pessoas"));
+
+  snap.forEach(d=>{
+    dadosCache.push({id:d.id,...d.data()});
+  });
+
+  renderLista(dadosCache);
+}
+
+// RENDER LISTA
+function renderLista(dados){
+  lista.innerHTML="";
+  dados.forEach(p=>{
+    lista.innerHTML += `<div class="lista-item">${p.nome}</div>`;
+  });
+}
+
+// BUSCA
+busca.addEventListener("input", ()=>{
+  const t = busca.value.toLowerCase();
+  renderLista(dadosCache.filter(p=>p.nome.toLowerCase().includes(t)));
+});
+
+// NAVEGAÇÃO
+window.abrirVisitas = ()=>{
+  menuScreen.classList.add("hidden");
+  visitasScreen.classList.remove("hidden");
+}
+
+window.voltarMenu = ()=>{
+  listaScreen.classList.add("hidden");
+  formScreen.classList.add("hidden");
+  visitasScreen.classList.add("hidden");
+  menuScreen.classList.remove("hidden");
+}
+
+window.novo = ()=>{
+  menuScreen.classList.add("hidden");
+  formScreen.classList.remove("hidden");
+}
+
+// VISITAS
+window.addCardVisita = ()=>{
+  const t = prompt("Texto:");
+  if(t){
+    visitasCards.push(t);
+    renderVisitas();
+  }
+}
+
+function renderVisitas(){
+  cardsVisita.innerHTML="";
+  visitasCards.forEach(c=>{
+    cardsVisita.innerHTML += `<div class="card">${c}</div>`;
+  });
+
+  arquivosVisita.innerHTML="";
+  visitasArquivos.forEach(a=>{
+    arquivosVisita.innerHTML += `<div class="card">${a.nome}</div>`;
+  });
+}
+
+window.addArquivoVisita = ()=>{
+  const input = document.createElement("input");
+  input.type="file";
+
+  input.onchange=e=>{
+    const file=e.target.files[0];
+    const reader=new FileReader();
+
+    reader.onload=()=>{
+      visitasArquivos.push({nome:file.name,data:reader.result});
+      renderVisitas();
+    }
+
+    if(file) reader.readAsDataURL(file);
+  }
+
+  input.click();
+}
+
+// EXPORT / IMPORT (mantido simples)
+window.exportar = ()=> alert("Exportar (ligar depois)");
+window.importar = ()=> alert("Importar (ligar depois)");
+
+</script>
+
+</body>
+</html>
